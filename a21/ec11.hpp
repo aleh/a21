@@ -83,9 +83,9 @@ public:
 			_lastPinStates = (_lastPinStates << 2) | state;
 		
 			// If we see a sequence of codes corresponding to a single step, then let's record an event.
-			if (_lastPinStates == 0b10000111) {
+			if (_lastPinStates == 0x87) {
 				addEvent(EC11Event::StepCCW);
-			} else if (_lastPinStates == 0b01001011) {
+			} else if (_lastPinStates == 0x4B) {
 				addEvent(EC11Event::StepCW);
 			}
 		}

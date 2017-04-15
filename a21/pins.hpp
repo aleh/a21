@@ -15,14 +15,14 @@ class UnusedPin {
 public:
 
   static inline void setOutput() {}
-  static inline void setInput(bool pullup) {}
+  static inline void setInput(bool) { }
   
   static inline bool isHigh() { return false; }
   
   static inline void setHigh() {}
   static inline void setLow() {}
   
-  static inline void write(bool b) {}
+  static inline void write(bool) { }
 };
 
 /** 
@@ -71,8 +71,7 @@ private:
   
 public:
 
-  #pragma GCC push_options	
-  #pragma GCC optimize ("O2")
+#pragma GCC optimize ("O2")
 	
   // Don't worry about all the if statements, they'll be optimized away as the expression is known at compilation time.
   
@@ -135,7 +134,7 @@ public:
     }
   }
   
-  #pragma GCC pop_options
+#pragma GCC reset_options
 };
 
 } // namespace
