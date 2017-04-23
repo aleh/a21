@@ -17,7 +17,7 @@ public:
   static inline void setOutput() {}
   static inline void setInput(bool) { }
   
-  static inline bool isHigh() { return false; }
+  static inline bool read() { return false; }
   
   static inline void setHigh() {}
   static inline void setLow() {}
@@ -40,7 +40,7 @@ public:
     pinMode(pin, pullup ? INPUT_PULLUP : INPUT);
   }
   
-  static inline bool isHigh() {
+  static inline bool read() {
     return digitalRead(pin) == HIGH;
   }
   
@@ -56,6 +56,58 @@ public:
     digitalWrite(pin, b ? HIGH : LOW);
   }
 };
+
+#if defined(ARDUINO_AVR_DIGISPARK)
+
+/** 
+ * Pin wrapper for ATTiny85-based boards (Digispark).
+ */
+template<int pin>
+class FastPin {
+
+private:
+
+  static uint8_t const mask = _BV(pin);
+  
+public:
+
+#pragma GCC optimize ("O2")
+	
+  static inline void setOutput() __attribute__((always_inline)) {
+    DDRB |= mask;
+  }
+  
+  static inline void setInput(bool pullup) __attribute__((always_inline)) {
+    DDRB &= ~mask;
+    if (pullup) {
+      PORTB |= mask;
+    } else {
+      PORTB &= ~mask;
+    }      
+  }
+  
+  static inline bool read() __attribute__((always_inline)) {
+    return bit_is_set(PINB, pin);
+  }
+  
+  static inline void setHigh() __attribute__((always_inline)) {
+    PORTB |= mask;
+  }
+  
+  static inline void setLow() __attribute__((always_inline)) {
+    PORTB &= ~mask;
+  }
+
+  static inline void write(bool b) __attribute__((always_inline)) {
+    if (b) {
+      setHigh();
+    } else {
+      setLow();
+    }
+  }
+};
+
+#else
 
 /** 
  * Wrapper for a pin that uses single instruction access to the corresponding port. Assuming standard Arduino Uno 
@@ -101,11 +153,11 @@ public:
     }
   }
   
-  static inline bool isHigh() __attribute__((always_inline)) {
+  static inline bool read() __attribute__((always_inline)) {
     if (pin < 8) {
-      return bit_is_set(PORTD, pin);
+      return bit_is_set(PIND, pin);
     } else {
-      return bit_is_set(PORTD, pin - 8);
+      return bit_is_set(PINB, pin - 8);
     }
   }
   
@@ -136,5 +188,7 @@ public:
   
 #pragma GCC reset_options
 };
+
+#endif
 
 } // namespace

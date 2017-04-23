@@ -4,6 +4,7 @@
 //
 
 #include <Arduino.h>
+#include <util/delay.h>
 
 #include "pcd8544fonts.hpp"
 
@@ -66,8 +67,6 @@ class PCD8544 {
   
   static void endWriting() {
     pinCE::setHigh();
-    pinCLK::setLow();
-    pinDIN::setLow();	
   }
           
   enum FunctionSetCommand : uint8_t {
@@ -171,7 +170,7 @@ public:
   }
     
   /** Initializes the device and transport pins. */
-  static void begin(uint8_t operatingVoltage, uint8_t biasSystem = 4, uint8_t temperatureControl = 2) {
+  static void begin(uint8_t operatingVoltage = 52, uint8_t biasSystem = 4, uint8_t temperatureControl = 2) {
     
     pinDIN::setOutput();
     pinDIN::setLow();
@@ -181,16 +180,14 @@ public:
     
     pinDC::setOutput();
     pinDC::setLow();
-    
-    pinRST::setOutput();    
-    
+        
     pinCE::setOutput();
     pinCE::setHigh();
 
+    pinRST::setOutput();    
     pinRST::setLow();
     delay125();
     pinRST::setHigh();
-    delay125();
 
     config(operatingVoltage, biasSystem, temperatureControl);
     
@@ -339,7 +336,7 @@ public:
           write(Data, bitmap[i] ^ xor_mask);
           if (--width_left == 0) {
             endWriting();
-            return;
+            return 0;
           }
         }
         
@@ -399,7 +396,6 @@ public:
     for (uint8_t row = 0; row < lcd::Rows; row++) {
       _buffer[row][0] = 0;
     }
-    lcd::clear();
   }
   
   void draw() {

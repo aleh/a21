@@ -7,7 +7,7 @@
 
 namespace a21 {
   
-typedef const uint8_t PROGMEM *PCD8544Font;
+typedef const uint8_t *PCD8544Font;
     
 /** 8-bit font data generated from 'PixelstadTweaked'. http://www.pentacom.jp/pentacom/bitfontmaker2/gallery/?id=3796 */
 class PCD8544FontPixelstadTweaked {
