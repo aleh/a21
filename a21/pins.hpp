@@ -3,13 +3,15 @@
 // Copyright (C) 2016-2017, Aleh Dzenisiuk. http://github.com/aleh/a21
 //
 
+#pragma once
+
 #include <arduino.h>
 
 namespace a21 {
 
 /** 
- * Pin for the cases when a template class requires one, but you don't really need it, like if you've left 
- * a secondary pin unconnected, etc. 
+ * Wrapper for a non-existent pin, this is handy to pass when a template requires one, but the pin is actually optional,
+ * can be left unconnected or is driver by other circuit or user's code.
  */
 class UnusedPin {
 public:
@@ -26,7 +28,8 @@ public:
 };
 
 /** 
- * Wrapper for a pin that uses standard Arduino library calls. 
+ * Wrapper for a pin that uses standard Arduino library calls (digitalRead and friends).
+ * This is handy when debugging FastPin or on boards not supported by it.
  */
 template<int pin>
 class SlowPin {
@@ -57,21 +60,25 @@ public:
   }
 };
 
-#if defined(ARDUINO_AVR_DIGISPARK)
-
 /** 
- * Pin wrapper for ATTiny85-based boards (Digispark).
+ * Wrapper for a pin that uses single instruction access to the corresponding port. 
+ * Handy when a pin needs to be manipulated very quickly.
+ * Pin numbers correspond to the numbers used by digitalWrite() on Arduino and compatible boards 
+ * (though we support only ATmega and ATtiny boards here for now).
  */
 template<int pin>
 class FastPin {
+  
+#pragma GCC optimize ("O2")
 
+// ATTiny85-based boards, like Digispark
+#if defined(__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
+  
 private:
 
   static uint8_t const mask = _BV(pin);
   
 public:
-
-#pragma GCC optimize ("O2")
 	
   static inline void setOutput() __attribute__((always_inline)) {
     DDRB |= mask;
@@ -105,16 +112,9 @@ public:
       setLow();
     }
   }
-};
 
-#else
-
-/** 
- * Wrapper for a pin that uses single instruction access to the corresponding port. Assuming standard Arduino Uno 
- * pin -> port mapping here. 
- */
-template<int pin>
-class FastPin {
+// ATmega329-based boards, like Arduino Uno or Nano
+#elif defined(__AVR_ATmega328P__)
 
 private:
 
@@ -122,8 +122,6 @@ private:
   static uint8_t const mask = (pin < 8) ? _BV(pin) : _BV(pin - 8);
   
 public:
-
-#pragma GCC optimize ("O2")
 	
   // Don't worry about all the if statements, they'll be optimized away as the expression is known at compilation time.
   
@@ -185,10 +183,16 @@ public:
       setLow();
     }
   }
-  
-#pragma GCC reset_options
-};
 
-#endif
+#else
+  
+#error Your MCU is not supported by FastPin class. Please add it!
+    
+#endif // MCU defines
+  
+// Cannot seem to pop the options correctly, have to reset
+#pragma GCC reset_options
+
+}; // FastPin class
 
 } // namespace
