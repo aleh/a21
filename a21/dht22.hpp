@@ -3,6 +3,8 @@
 // Copyright (C) 2016-2017, Aleh Dzenisiuk. http://github.com/aleh/a21
 //
 
+#pragma once
+
 #include <Arduino.h>
 
 namespace a21 {
@@ -88,8 +90,8 @@ public:
       checksum += response[2]; 
       checksum += response[3]; 
       if (checksum == response[4]) {
-        temperature = (((uint16_t)response[2] << 8) | response[3]);
-        if (response[2] & 0x80)
+        temperature = (((uint16_t)(response[2] & 0x7F) << 8) | response[3]);
+         if (response[2] & 0x80)
           temperature = -temperature;
         humidity = (((uint16_t)response[0] << 8) | response[1]);
         result = true;

@@ -8,6 +8,10 @@ Wrappers for Arduino pins that can be passed to templates. Flixibility of simple
 
 A class helping with debouncing logic, handy when you handle a pushbutton or a switch.
 
+## dht22.hpp
+
+Compact driver for DHT22 (AM2302) temperature sensor: does not require floating point numbers.
+
 ## ec11.hpp
 
 This is a little library that helps to work with EC-11 style of rotary encoders on Arduino. The dependancy on Arduino functions is very small, so it can be easily ported to other platforms. See `ec11.hpp` for the docs and `examples` folder for a little demo.
