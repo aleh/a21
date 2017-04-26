@@ -400,7 +400,7 @@ public:
   
   void draw() {
     
-    for (uint8_t i = 0; i <= _filledRows; i++) {
+    for (uint8_t i = 0; i < lcd::Rows; i++) {
       
       int8_t row_index = _row - _filledRows + i;
       if (row_index < 0)
@@ -417,19 +417,18 @@ public:
     char ch;
     const char *src = text;
     while ((ch = *src++)) {
-      
       if (ch >= ' ') {
-        
+      
         uint8_t width = lcd::dataForCharacter(font::font(), ch, NULL);
         if (_col >= MaxCols || _rowWidth + width >= lcd::Cols) {
           newline();        
         }
-      
+    
         _buffer[_row][_col] = ch;
         _col++;
         _buffer[_row][_col] = 0;
         _rowWidth += width + 1;
-        
+      
       } else if (ch == '\n') {
         newline();
       } else if (ch == '\r') {
