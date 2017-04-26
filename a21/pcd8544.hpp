@@ -3,70 +3,43 @@
 // Copyright (C) 2016-2017, Aleh Dzenisiuk. http://github.com/aleh/a21
 //
 
+#pragma once
+
 #include <Arduino.h>
 #include <util/delay.h>
 
-#include "pcd8544fonts.hpp"
+#include <a21/pcd8544fonts.hpp>
+#include <a21/spi.hpp>
 
 namespace a21 {
-
+  
 /** 
  * Basic wrapper for a PCD8544 LCD display (such as the one that was used on Nokia 5110) with softwate SPI.
  * Note that the 'slow' parameter should be true only if this happen to be ported on a faster MCU 
  * and we need to ensure clock speed is less than 4 MHz. 
  * (The clock frequency will be less than 2 MHz on 16MHz Arduinos even with 'slow' being false.)
  */
-template<typename pinRST, typename pinCE, typename pinDC, typename pinDIN, typename pinCLK, bool slow = false>
+template<typename pinRST, typename pinCE, typename pinDC, typename pinMOSI, typename pinCLK, long maxFrequency=4000000>
 class PCD8544 {
-  	  
-  /** Delays execution for at least a half of the minimal clock period, which is 1/4 us in the datasheet. */
-  static inline void delay125() __attribute__((always_inline)) {
-	  _delay_us((1.0 / 4000000) / 2);
-  }
-
-  static inline void writeBit(bool b) __attribute__((always_inline)) {
-    
-    // Set the data bit, will have enough time to settle before the clock raising.
-    pinDIN::write(b);
-
-    // Clock the data bit out on the raising edge.
-    pinCLK::setLow();    
-
-    // Let's delay a bit in the slow mode.
-    if (slow)
-      delay125();
-    
-    // Clock it out!
-    pinCLK::setHigh();
-    
-    // The preparation for the next bit slow enough, so no delays are actually needed here.
-  }  
   
+  typedef SPI<pinMOSI, pinCLK, pinCE, maxFrequency> spi;
+
   enum ValueType : uint8_t {
     Command,
     Data
   };
   
   static void write(ValueType valueType, uint8_t value) {
-
     pinDC::write(valueType == Data);
-    writeBit(value & _BV(7));
-    writeBit(value & _BV(6));
-    writeBit(value & _BV(5));
-    writeBit(value & _BV(4));
-    writeBit(value & _BV(3));
-    writeBit(value & _BV(2));
-    writeBit(value & _BV(1));
-    writeBit(value & _BV(0));
+    spi::write(value);
   }  
 
   static void beginWriting() {
-    pinCLK::setLow();
-    pinCE::setLow();
+    spi::beginWriting();
   }
   
   static void endWriting() {
-    pinCE::setHigh();
+    spi::endWriting();
   }
           
   enum FunctionSetCommand : uint8_t {
@@ -172,21 +145,14 @@ public:
   /** Initializes the device and transport pins. */
   static void begin(uint8_t operatingVoltage = 52, uint8_t biasSystem = 4, uint8_t temperatureControl = 2) {
     
-    pinDIN::setOutput();
-    pinDIN::setLow();
-    
-    pinCLK::setOutput();
-    pinCLK::setLow();
-    
+    spi::begin();
+        
     pinDC::setOutput();
     pinDC::setLow();
-        
-    pinCE::setOutput();
-    pinCE::setHigh();
 
     pinRST::setOutput();    
     pinRST::setLow();
-    delay125();
+    delayMicroseconds(1000000.0 / maxFrequency);
     pinRST::setHigh();
 
     config(operatingVoltage, biasSystem, temperatureControl);
@@ -384,7 +350,7 @@ private:
     _col = 0;
     _rowWidth = 0;
   }
-
+  
 public:
   
   PCD8544Console() : _row(0), _col(0), _rowWidth(0), _filledRows(0) {}
