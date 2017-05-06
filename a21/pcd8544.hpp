@@ -6,7 +6,6 @@
 #pragma once
 
 #include <Arduino.h>
-#include <util/delay.h>
 
 #include <a21/pcd8544fonts.hpp>
 #include <a21/spi.hpp>
@@ -122,7 +121,7 @@ public:
   static const int Cols = 84;
   
   /** Maximum value for the parameter of operatingVoltage function, though the actual usable values are usually much smaller. */
-  const uint8_t MaxVoltage = 0x7F;  
+  static const uint8_t MaxVoltage = 0x7F;
 
   /** Sets operational voltage affecting contrast of the display. */
   static void operatingVoltage(uint8_t value) {
@@ -329,8 +328,9 @@ private:
   uint8_t _col;
   uint8_t _rowWidth;
   uint8_t _filledRows;
+  bool _dirty;
   
-  void newline() {
+  void lf() {
     
     _col = 0;
     _rowWidth = 0;
@@ -346,14 +346,16 @@ private:
     _buffer[_row][_col] = 0;
   }
   
-  void carriage_return() {
+  void cr() {
     _col = 0;
     _rowWidth = 0;
   }
   
 public:
   
-  PCD8544Console() : _row(0), _col(0), _rowWidth(0), _filledRows(0) {}
+  PCD8544Console() 
+    : _row(0), _col(0), _rowWidth(0), _filledRows(0)
+  {}
   
   void clear() {
     _row = _filledRows = 0;
@@ -362,10 +364,16 @@ public:
     for (uint8_t row = 0; row < lcd::Rows; row++) {
       _buffer[row][0] = 0;
     }
+    _dirty = true;    
   }
   
   void draw() {
     
+    if (!_dirty)
+      return;
+    
+    _dirty = false;
+        
     for (uint8_t i = 0; i < lcd::Rows; i++) {
       
       int8_t row_index = _row - _filledRows + i;
@@ -378,30 +386,98 @@ public:
     }
   }
 
-  void print(const char *text) {
+  void print(uint8_t ch) {
     
-    char ch;
-    const char *src = text;
-    while ((ch = *src++)) {
-      if (ch >= ' ') {
-      
-        uint8_t width = lcd::dataForCharacter(font::font(), ch, NULL);
-        if (_col >= MaxCols || _rowWidth + width >= lcd::Cols) {
-          newline();        
-        }
+    if (ch >= ' ') {
     
-        _buffer[_row][_col] = ch;
-        _col++;
-        _buffer[_row][_col] = 0;
-        _rowWidth += width + 1;
-      
-      } else if (ch == '\n') {
-        newline();
-      } else if (ch == '\r') {
-        carriage_return();
+      uint8_t width = lcd::dataForCharacter(font::font(), ch, NULL);
+      if (_col >= MaxCols || _rowWidth + width >= lcd::Cols) {
+        lf();        
       }
+  
+      _buffer[_row][_col] = ch;
+      _col++;
+      _buffer[_row][_col] = 0;
+      _rowWidth += width + 1;
+            
+    } else if (ch == '\n') {
+      lf();
+    } else if (ch == '\r') {
+      cr();
     }
-  }    
+    
+    _dirty = true;
+  }
+  
+  void print(const char *str) {
+    const char *src = str;
+    uint8_t ch;
+    while (ch = *src++) {
+      print(ch);
+    }
+  }
+  
+  void print(fstr_t *str) {
+    const char *src = (const char *)str;
+    uint8_t ch;
+    while (ch = pgm_read_byte(src++)) {
+      print(ch);
+    }
+  }
+
+  void print(int n) {
+    char buf[5 + 2];
+    itoa(n, buf, 10);
+    print(buf);
+  }
+  
+  void print(unsigned int n) {
+    char buf[5 + 1];
+    utoa(n, buf, 10);
+    print(buf);
+  }
+    
+  void print(long n) {
+    char buf[10 + 2];
+    ltoa(n, buf, 10);
+    print(buf);
+  }
+  
+  void print(unsigned long n) {
+    char buf[10 + 1];
+    ltoa(n, buf, 10);
+    print(buf);
+  }
+    
+  void println(const char *str) {
+    print(str);
+    lf();
+  }
+  
+  void println(fstr_t *str) {
+    print(str);
+    lf();
+  }  
+  
+  void println(int n) {
+    print(n);
+    lf();
+  }
+  
+  void println(unsigned int n) {
+    print(n);
+    lf();
+  }
+  
+  void println(long n) {
+    print(n);
+    lf();
+  }  
+  
+  void println(unsigned long n) {
+    print(n);
+    lf();
+  }  
 };
 
 } // namespace

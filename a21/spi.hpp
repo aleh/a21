@@ -9,6 +9,10 @@
 
 #include <a21/pins.hpp>
 
+#if defined(ARDUINO_ARCH_AVR)
+#include <util/delay.h>
+#endif
+
 namespace a21 {
 
 /**
@@ -25,7 +29,11 @@ private:
   static inline void delayMicroseconds(double us) __attribute__((always_inline)) {
     // Don't need a delay if it's going to be less than a clock cycle.
     if (us > 0.5 * 1000000.0 / F_CPU) {
+      #if defined(ARDUINO_ARCH_AVR)
       _delay_us(us);
+      #else
+      delayMicroseconds(us);
+      #endif
     }
   }
   

@@ -8,6 +8,8 @@
 #include <Arduino.h>
 
 namespace a21 {
+
+// TODO: provide a source of microsecond resolution timer
   
 template<typename pin, bool pullup>
 class DHT22 {
