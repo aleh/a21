@@ -6,13 +6,14 @@
 #pragma once
 
 #include <Arduino.h>
+#include <a21/pins.hpp>
 
 namespace a21 {
-
+  
 /** 
  * Simple debouncer logic for Arduino.
  */
-template<class T, int timeout = 10, bool initial_value = false>
+template<typename T, int timeout = 10, bool initial_value = false>
 class Debouncer {
 
 private:
@@ -43,18 +44,20 @@ public:
   void valueDidChange() { 
   }
 
-  /** Should be called every time a new value is read, for example from a pin interrupt handler. */
+  /** Should be called every time a raw value is read, for example from a pin interrupt handler. */
   void setValue(bool value) {
-    _holding = true;
-    _heldValue = value;
-    _timestamp = millis();
+    if (!_holding || value != _heldValue) {
+      _holding = true;
+      _heldValue = value;
+      _timestamp = millis();
+    }
   }
 
   /** 
    * Should be called periodically (from the main loop) to check if the new value being held has finally settled. 
    * Note that it assumes that interrupts are enabled.
    */
-  void check() {
+  bool check() {
     
     noInterrupts();
 
@@ -62,15 +65,37 @@ public:
       
       // OK, enough time has passed, let's proclaim the value being held as a debounced one.
       _holding = false;
+      
+      bool changed = (_heldValue != _value);
+      
       _value = _heldValue;
       
       interrupts();
       
-      static_cast<T*>(this)->valueDidChange();
+      if (changed) {
+        static_cast<T*>(this)->valueDidChange();
+      }
       
     } else {
       interrupts();
     }
+  }
+};
+
+template<typename Pin, int timeout = 10, bool initial_value = false>
+class DebouncedPin {
+private:
+  
+  class DebouncerImp : public Debouncer<DebouncerImp, timeout, initial_value> {} _debouncer;  
+  
+public:
+  
+  Pin pin;
+    
+  bool read() {
+    _debouncer.setValue(pin.read());
+    _debouncer.check();
+    return _debouncer.value();
   }
 };
 
