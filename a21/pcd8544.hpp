@@ -13,16 +13,15 @@
 namespace a21 {
   
 /** 
- * Basic wrapper for a PCD8544 LCD display (such as the one that was used on Nokia 5110) with softwate SPI.
- * Note that the 'slow' parameter should be true only if this happen to be ported on a faster MCU 
- * and we need to ensure clock speed is less than 4 MHz. 
- * (The clock frequency will be less than 2 MHz on 16MHz Arduinos even with 'slow' being false.)
+ * Basic wrapper for a PCD8544 LCD display (such as the one that was used on Nokia 5110).
  */
-template<typename pinRST, typename pinCE, typename pinDC, typename pinMOSI, typename pinCLK, long maxFrequency=4000000>
+template<typename pinRST, typename pinCE, typename pinDC, typename pinDIN, typename pinCLK, uint32_t maxFrequency = 4000000L>
 class PCD8544 {
   
-  typedef SPI<pinMOSI, pinCLK, pinCE, maxFrequency> spi;
-
+private:
+  
+  typedef SPI<pinDIN, pinCLK, pinCE, maxFrequency> spi;
+  
   enum ValueType : uint8_t {
     Command,
     Data
@@ -87,7 +86,11 @@ class PCD8544 {
   };
 
   static inline void extendedCommandSet(bool extended) {
-    write(Command, extended ? (FunctionSet | H) & ~(PD | V) : (FunctionSet | 0) & ~(PD | V | H));
+    write(
+      Command, 
+      extended ? (FunctionSet | H) & ~(PD | V) 
+        : (FunctionSet | 0) & ~(PD | V | H)
+    );
   }
   
   static inline void setAddressInternal(uint8_t col, uint8_t row) {
@@ -100,7 +103,7 @@ class PCD8544 {
     
     beginWriting();
 
-    // TODO: perhaps make the display mode a parameter?
+    // Not making the display mode a parameter here as those don't seem to be useful.
     extendedCommandSet(false);
     write(Command, DisplayControl | NormalMode);
         
@@ -123,7 +126,7 @@ public:
   /** Maximum value for the parameter of operatingVoltage function, though the actual usable values are usually much smaller. */
   static const uint8_t MaxVoltage = 0x7F;
 
-  /** Sets operational voltage affecting contrast of the display. */
+  /** Sets operational voltage affecting the contrast of the display. */
   static void operatingVoltage(uint8_t value) {
     beginWriting();
     extendedCommandSet(true);
@@ -141,7 +144,7 @@ public:
     endWriting();
   }
     
-  /** Initializes the device and transport pins. */
+  /** Initializes the display. */
   static void begin(uint8_t operatingVoltage = 52, uint8_t biasSystem = 4, uint8_t temperatureControl = 2) {
     
     spi::begin();
@@ -151,7 +154,10 @@ public:
 
     pinRST::setOutput();    
     pinRST::setLow();
+    
+    // TODO: add delay template instead
     delayMicroseconds(1000000.0 / maxFrequency);
+    
     pinRST::setHigh();
 
     config(operatingVoltage, biasSystem, temperatureControl);
@@ -160,10 +166,11 @@ public:
   }
   
   /** 
-   * Transports a bunch of bytes for the given row. Each byte is responsible for a 8 pixel column within the row 
-   * (MSB is in the bottom of the row, LSB is in the top).
+   * Transports a bunch of bytes for the given row. The layout directly corresponds with the memory layout of the LCD, 
+   * where each byte is responsible for a 8 pixel column within the row (MSB is in the bottom of the row, 
+   * LSB is in the top).
    *
-   * The row is filled from left to right (i.e. column address is automaticallt incremented).
+   * The row is filled from left to right (i.e. column address is automatically incremented).
    *                    col      col + 1
    *  line row * 8:     # bit 0  # bit 0  ...
    *  line row * 8 + 1: # bit 1  # bit 1  ...
@@ -173,7 +180,7 @@ public:
    *                    byte 0   byte 1
    *
    * Note that if more bytes are provided than is left in the row, then they'll be written to the next one 
-   * (or the first one in case of the last row). 
+   * (or the first one in case of the last row).
    */
   static void writeRow(uint8_t col, uint8_t row, const uint8_t *data, uint8_t data_length) {
     beginWriting();
@@ -184,8 +191,11 @@ public:
     }
     endWriting();
   }
-  
-  static void fillRow(uint8_t col, uint8_t row, uint8_t length, uint8_t filler) {
+
+  /**
+   * Similar to writeRow, but the same byte is sent `length` times.
+   */
+  static void fillRow(uint8_t col, uint8_t row, uint8_t filler, uint8_t length) {
     beginWriting();
     setAddressInternal(col, row);
     for (uint8_t c = length; c > 0; c--) {
@@ -195,10 +205,13 @@ public:
   }
   
   //
-  // Fonts
+  // Support for simple 8px high fonts fitting rows of the display exactly
   //
-  /** Returns the width of the glyph corresponding to a character in the given font and, if a buffer is provided, 
-  * copies glyph's bitmap into it. */
+  
+  /** 
+   * Returns the width of the glyph corresponding to a character in the given font and, if a buffer is provided, 
+   * copies glyph's bitmap bytes into it. 
+   */
   static uint8_t dataForCharacter(PCD8544Font font, char ch, uint8_t *buffer) {
  
     const uint8_t *p = font;
@@ -244,6 +257,7 @@ public:
     return dataForCharacter(font, '?', buffer);
   }  
 
+  /** The width of the string drawn with the given font. */
   static uint8_t textWidth(PCD8544Font font, const char *text) {
     
     char ch;
@@ -256,26 +270,13 @@ public:
     
     return result;
   }
-  
-  /** Returns how many characters will fit max_width without being truncacted. */
-  static uint8_t numberOfCharsFittingWidth(PCD8544Font font, const char *text, uint8_t max_width) {
     
-    uint8_t result = 0;
-    
-    char ch;
-    const char *src = text;
-    uint8_t total_width = 0;
-    while ((ch = *src++)) {
-      uint8_t new_total_width = total_width + dataForCharacter(font, ch, NULL) + 1;
-      if (new_total_width > max_width)
-        break;
-      total_width = new_total_width;
-      result++;
-    }
-    
-    return result;
-  }
-  
+  /** 
+   * Renders a text string by sending the corresponding bytes directly to the LCD.
+   * The row and col parameters use LCD addressing system, where each rows occupies 8 pixels.
+   * The max_width parameter is not clipped to the actual width available.
+   * The xor_mask set to 0xFF or 0x7E can be used to render inverted text, for example.
+   */
   static uint8_t drawText(
     PCD8544Font font, 
     const uint8_t col, 
@@ -291,7 +292,11 @@ public:
     
     char ch;
     const char *src = text;
-    uint8_t width_left = max_width;
+    
+    // Well, let's clip it just in case.
+    uint8_t m = Cols - col;
+    uint8_t width_left = max_width < m ? max_width : m;
+    
     while ((ch = *src++)) {
       
         uint8_t bitmap[8];
@@ -314,8 +319,32 @@ public:
     
     return max_width - width_left;
   }
+  
+  /** Returns how many characters will fit max_width pixels without being truncacted. */
+  static uint8_t numberOfCharsFittingWidth(PCD8544Font font, const char *text, uint8_t max_width) {
+    
+    uint8_t result = 0;
+    
+    char ch;
+    const char *src = text;
+    uint8_t total_width = 0;
+    while ((ch = *src++)) {
+      uint8_t new_total_width = total_width + dataForCharacter(font, ch, NULL) + 1;
+      if (new_total_width > max_width)
+        break;
+      total_width = new_total_width;
+      result++;
+    }
+    
+    return result;
+  }
+  
 };
 
+/**
+ * Turns a PCD8544 LCD into a simple text-only display with autoscrolling.
+ * Note that we don't inherit Arduino's Print class to keep the compiled code size small.
+ */
 template<typename lcd, typename font>
 class PCD8544Console {
   
@@ -357,6 +386,7 @@ public:
     : _row(0), _col(0), _rowWidth(0), _filledRows(0)
   {}
   
+  /** Clears the console without redrawing it on the LCD. */
   void clear() {
     _row = _filledRows = 0;
     _col = 0;
@@ -367,6 +397,8 @@ public:
     _dirty = true;    
   }
   
+  /** Transfers the contents of the console buffer to the LCD. 
+   * Note that this is not called automatically for every print() function. */
   void draw() {
     
     if (!_dirty)
@@ -380,13 +412,15 @@ public:
       if (row_index < 0)
         row_index += lcd::Rows;
       
-      // Print the row and erase the rest.
+      // Print the row and erase the space after the last character.
       uint8_t width = lcd::drawText(font::font(), 0, i, lcd::Cols, _buffer[row_index]);
-      lcd::fillRow(width, i, lcd::Cols - width, 0);
+      lcd::fillRow(width, i, 0, lcd::Cols - width);
     }
   }
 
-  void print(uint8_t ch) {
+  void print(uint8_t c) {
+    
+    uint8_t ch = ch & 0x7F;
     
     if (ch >= ' ') {
     
@@ -401,9 +435,12 @@ public:
       _rowWidth += width + 1;
             
     } else if (ch == '\n') {
+      
       lf();
+      
     } else if (ch == '\r') {
-      cr();
+      
+      cr();      
     }
     
     _dirty = true;
@@ -476,6 +513,10 @@ public:
   
   void println(unsigned long n) {
     print(n);
+    lf();
+  }  
+  
+  void println() {
     lf();
   }  
 };

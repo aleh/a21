@@ -25,7 +25,7 @@ class SPI {
   
 private:
   
-  /** Busy-waits for the specified number of microseconds using _delay_us from avr-gcc. */
+  /** Busy-waits for the specified number of microseconds. */
   static inline void delayMicroseconds(double us) __attribute__((always_inline)) {
     // Don't need a delay if it's going to be less than a clock cycle.
     if (us > 0.5 * 1000000.0 / F_CPU) {
