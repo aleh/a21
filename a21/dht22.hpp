@@ -7,22 +7,28 @@
 
 #include <Arduino.h>
 
+#include "clock.hpp"
+
 namespace a21 {
 
-// TODO: provide a source of microsecond resolution timer
-  
-template<typename pin, bool pullup>
+/** 
+ * Reads DHT22 and compatible temperature/humidity sensors connected to the given pin.
+ * Should have pretty compact code (~500 bytes) because it does not use floating point or even to divide by 10 here.
+ * The `pin` parameter should be FastPin-compatible.
+ * The `pullup` parameter is true in case an internal pullup on the pin should be enabled.
+ */
+template<typename pin, bool pullup, typename clock = ArduinoClock>
 class DHT22 {
   
 private:
   
   static uint8_t wait_while_pin(bool value, uint8_t min_timeout, uint8_t max_timeout) {
     
-    unsigned long start = micros();
+    uint8_t start = clock::micros8();
     uint8_t time;
     bool late;
     do {
-      time = micros() - start;
+      time = clock::micros8() - start;
       late = time > max_timeout;
     } while (pin::read() == value && !late);
     
@@ -36,22 +42,27 @@ private:
     
 public:
   
+  /** Returns false in case the reading was not successful. */
   static bool read(int16_t& temperature, uint16_t& humidity) {
 
-    // First we pull the line low for at least 1 ms.
+    // First we pull the line low for at least 1 ms
     pin::setOutput();
     pin::setLow();
-    delay(1);
-    
-    uint8_t response[5];      
+    clock::delay(1);
     
     bool result = false;
+    uint8_t response[5];
+    
     noInterrupts();
+    
     do {
-      // Then free it and wait for the sensor to pull the line low. 
+      
+      // Then release it and wait for the sensor to pull the line low. 
       // It should do so within 20-40 us, but we give it a bit more time.
       pin::setInput(pullup);
-      delayMicroseconds(1);    
+      
+      clock::delayMicroseconds(1);
+      
       if (!wait_while_pin(true, 1, 60))
         break;
     
@@ -106,7 +117,6 @@ public:
     
     return result;
   }
-
 };
   
 } // namepsace
