@@ -18,6 +18,13 @@ namespace a21 {
 template<typename pinRST, typename pinCE, typename pinDC, typename pinDIN, typename pinCLK, uint32_t maxFrequency = 4000000L>
 class PCD8544 {
   
+public:
+  
+  enum Flags {
+    InverseVideo,
+    NormalVideo
+  };
+  
 private:
   
   typedef SPI<pinDIN, pinCLK, pinCE, maxFrequency> spi;
@@ -99,13 +106,13 @@ private:
     write(Command, SetYAddress | row);
   }
   
-  static inline void config(uint8_t operatingVoltage, uint8_t biasSystem, uint8_t temperatureControl) {
+  static inline void config(Flags flags, uint8_t operatingVoltage, uint8_t biasSystem, uint8_t temperatureControl) {
     
     beginWriting();
 
     // Not making the display mode a parameter here as those don't seem to be useful.
     extendedCommandSet(false);
-    write(Command, DisplayControl | NormalMode);
+    write(Command, (flags == InverseVideo) ? (DisplayControl | InverseVideoMode) : (DisplayControl | NormalMode));
         
     extendedCommandSet(true);    
     write(Command, SetVop | (operatingVoltage & SetVopMask));
@@ -143,9 +150,9 @@ public:
     }
     endWriting();
   }
-    
+      
   /** Initializes the display. */
-  static void begin(uint8_t operatingVoltage = 52, uint8_t biasSystem = 4, uint8_t temperatureControl = 2) {
+  static void begin(Flags flags = NormalVideo, uint8_t operatingVoltage = 52, uint8_t biasSystem = 4, uint8_t temperatureControl = 2) {
     
     spi::begin();
         
@@ -154,13 +161,11 @@ public:
 
     pinRST::setOutput();    
     pinRST::setLow();
-    
     // TODO: add delay template instead
     delayMicroseconds(1000000.0 / maxFrequency);
-    
     pinRST::setHigh();
 
-    config(operatingVoltage, biasSystem, temperatureControl);
+    config(flags, operatingVoltage, biasSystem, temperatureControl);
     
     clear();
   }
@@ -418,9 +423,7 @@ public:
     }
   }
 
-  void print(uint8_t c) {
-    
-    uint8_t ch = ch & 0x7F;
+  void print(char ch) {
     
     if (ch >= ' ') {
     
@@ -448,7 +451,7 @@ public:
   
   void print(const char *str) {
     const char *src = str;
-    uint8_t ch;
+    char ch;
     while (ch = *src++) {
       print(ch);
     }
@@ -456,7 +459,7 @@ public:
   
   void print(fstr_t *str) {
     const char *src = (const char *)str;
-    uint8_t ch;
+    char ch;
     while (ch = pgm_read_byte(src++)) {
       print(ch);
     }
