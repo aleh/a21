@@ -13,7 +13,7 @@ namespace a21 {
 /** 
  * Simple debouncer logic for Arduino.
  */
-template<typename T, int timeout = 10, bool initial_value = false>
+template<typename T, int timeout_ms = 10, bool initial_value = false>
 class Debouncer {
 
 private:
@@ -61,7 +61,7 @@ public:
     
     noInterrupts();
 
-    if (_holding && (int)(millis() - _timestamp) >= timeout) { 
+    if (_holding && (int)(millis() - _timestamp) >= timeout_ms) { 
       
       // OK, enough time has passed, let's proclaim the value being held as a debounced one.
       _holding = false;
@@ -82,11 +82,11 @@ public:
   }
 };
 
-template<typename Pin, int timeout = 10, bool initial_value = false>
+template<typename Pin, int timeout_ms = 10, bool initial_value = false>
 class DebouncedPin {
 private:
   
-  class DebouncerImp : public Debouncer<DebouncerImp, timeout, initial_value> {} _debouncer;  
+  class DebouncerImp : public Debouncer<DebouncerImp, timeout_ms, initial_value> {} _debouncer;  
   
 public:
   
