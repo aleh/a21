@@ -13,9 +13,14 @@
 namespace a21 {
   
 /** 
- * Basic wrapper for a PCD8544 LCD display (such as the one that was used on Nokia 5110).
+ * Basic wrapper for a PCD8544 LCD display (such as the one that was used on Nokia 5110) using software SPI.
+ * The parameters are FastPin-wrapped pins in the order they have on the actual device (well, at least on mine):
+ * RST, CE, DC, DIN, CLK.
  */
-template<typename pinRST, typename pinCE, typename pinDC, typename pinDIN, typename pinCLK, uint32_t maxFrequency = 4000000L>
+template<
+   typename pinRST, typename pinCE, typename pinDC, typename pinDIN, typename pinCLK, 
+   uint32_t maxFrequency = 4000000L
+>
 class PCD8544 {
   
 public:
@@ -34,37 +39,37 @@ private:
     Data
   };
   
-  static void write(ValueType valueType, uint8_t value) {
+  static inline void write(ValueType valueType, uint8_t value) {
     pinDC::write(valueType == Data);
     spi::write(value);
   }  
 
-  static void beginWriting() {
+  static inline void beginWriting() {
     spi::beginWriting();
   }
   
-  static void endWriting() {
+  static inline void endWriting() {
     spi::endWriting();
   }
           
   enum FunctionSetCommand : uint8_t {
     FunctionSet = 0x20,
     /** 0 - basic command set, 1 - extended command set. */
-    H = 1,
+    FunctionSetH = 1,
     /** 0 - horizontal addressing mode, 1 - vertical addressing mode. */
-    V = 2,
+    FunctionSetV = 2,
     /** 0 - chip active, 1 - chip in power down mode. */
-    PD = 4
+    FunctionSetPD = 4
   };
 
   enum DisplayControlCommand : uint8_t {
     DisplayControl = 0x08,
-    D = 0x04,
+    DisplayControlD = 0x04,
     E = 0x01,
-    DisplayBlank = (uint8_t)(~(D | E)),
-    NormalMode = (uint8_t)(D & ~E),
-    AllSegmentsOn = (uint8_t)(~D & E),
-    InverseVideoMode = (uint8_t)(D | E)
+    DisplayBlank = (uint8_t)(~(DisplayControlD | E)),
+    NormalMode = (uint8_t)(DisplayControlD & ~E),
+    AllSegmentsOn = (uint8_t)(~DisplayControlD & E),
+    InverseVideoMode = (uint8_t)(DisplayControlD | E)
   };
 
   enum SetXAddressCommand : uint8_t {
@@ -95,13 +100,14 @@ private:
   static inline void extendedCommandSet(bool extended) {
     write(
       Command, 
-      extended ? (FunctionSet | H) & ~(PD | V) 
-        : (FunctionSet | 0) & ~(PD | V | H)
+      extended ? (FunctionSet | FunctionSetH) & ~(FunctionSetPD | FunctionSetV) 
+        : (FunctionSet | 0) & ~(FunctionSetPD | FunctionSetV | FunctionSetH)
     );
   }
   
   static inline void setAddressInternal(uint8_t col, uint8_t row) {
-    extendedCommandSet(false);
+    // Assuming that we are not in the extended command set by default.
+    //~ extendedCommandSet(false);
     write(Command, SetXAddress | col);
     write(Command, SetYAddress | row);
   }
@@ -109,35 +115,44 @@ private:
   static inline void config(Flags flags, uint8_t operatingVoltage, uint8_t biasSystem, uint8_t temperatureControl) {
     
     beginWriting();
-
-    // Not making the display mode a parameter here as those don't seem to be useful.
-    extendedCommandSet(false);
-    write(Command, (flags == InverseVideo) ? (DisplayControl | InverseVideoMode) : (DisplayControl | NormalMode));
         
-    extendedCommandSet(true);    
+    extendedCommandSet(true);
     write(Command, SetVop | (operatingVoltage & SetVopMask));
     write(Command, BiasSystem | (biasSystem & BiasSystemMask));
     write(Command, TemperatureControl | (temperatureControl & TemperatureControlMask));
-            
+    
+    extendedCommandSet(false);
+    write(Command, DisplayControl | ((flags == InverseVideo) ? InverseVideoMode : NormalMode));
+                
     endWriting();
   }  
     
 public:
   
   /** Number of addressable rows, with every row corresponding to 8 horizontal lines of actual pixels. */
-  static const int Rows = 6;
+  static const uint8_t Rows = 6;
   
   /** Number of addressable columns, though unlike rows every column corresponds to 1 vertical line of pixels. */
-  static const int Cols = 84;
+  static const uint8_t Cols = 84;
+
+  /** For convenience the width and the height of the display in pixels. */
+  static const uint8_t Width = Cols;
+  static const uint8_t Height = Rows * 8;
   
   /** Maximum value for the parameter of operatingVoltage function, though the actual usable values are usually much smaller. */
   static const uint8_t MaxVoltage = 0x7F;
 
   /** Sets operational voltage affecting the contrast of the display. */
   static void operatingVoltage(uint8_t value) {
+    
     beginWriting();
+    
     extendedCommandSet(true);
     write(Command, SetVop | value);
+    
+    // Always assuming that the normal command mode.
+    extendedCommandSet(false);
+    
     endWriting();
   }
 
@@ -152,7 +167,7 @@ public:
   }
       
   /** Initializes the display. */
-  static void begin(Flags flags = NormalVideo, uint8_t operatingVoltage = 52, uint8_t biasSystem = 4, uint8_t temperatureControl = 2) {
+  static void begin(Flags flags = NormalVideo, uint8_t operatingVoltage = 22, uint8_t biasSystem = 7, uint8_t temperatureControl = 2) {
     
     spi::begin();
         
@@ -187,11 +202,11 @@ public:
    * Note that if more bytes are provided than is left in the row, then they'll be written to the next one 
    * (or the first one in case of the last row).
    */
-  static void writeRow(uint8_t col, uint8_t row, const uint8_t *data, uint8_t data_length) {
+  static void writeRow(uint8_t col, uint8_t row, const uint8_t *data, uint16_t data_length) {
     beginWriting();
     setAddressInternal(col, row);
     const uint8_t *src = data;
-    for (uint8_t c = data_length; c > 0; c--) {
+    for (uint16_t c = data_length; c > 0; c--) {
       write(Data, *src++);
     }
     endWriting();
@@ -346,11 +361,17 @@ public:
   
 };
 
+#if defined(__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
+typedef char *FlashStringPtr;
+#else
+typedef const __FlashStringHelper *FlashStringPtr;
+#endif
+
 /**
  * Turns a PCD8544 LCD into a simple text-only display with autoscrolling.
  * Note that we don't inherit Arduino's Print class to keep the compiled code size small.
  */
-template<typename lcd, typename font>
+template<typename lcd, typename font = PCD8544FontPixelstadTweaked>
 class PCD8544Console {
   
 private:
@@ -457,7 +478,7 @@ public:
     }
   }
   
-  void print(fstr_t *str) {
+  void print(FlashStringPtr str) {
     const char *src = (const char *)str;
     char ch;
     while (ch = pgm_read_byte(src++)) {
@@ -494,7 +515,7 @@ public:
     lf();
   }
   
-  void println(fstr_t *str) {
+  void println(FlashStringPtr str) {
     print(str);
     lf();
   }  

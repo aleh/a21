@@ -34,6 +34,8 @@ public:
 template<int pin>
 class SlowPin {
 public:
+  
+  static const int Pin = pin;
 
   static inline void setOutput() {
     pinMode(pin, OUTPUT);
@@ -68,6 +70,9 @@ public:
  */
 template<int pin>
 class FastPin {
+  
+public:
+  static const int Pin = pin;  
   
 #pragma GCC optimize ("O2")
 
@@ -113,8 +118,8 @@ public:
     }
   }
 
-// ATmega329-based boards, like Arduino Uno or Nano
-#elif defined(__AVR_ATmega328P__)
+// ATmega329-based boards, like Arduino Uno, Nano, or Yun
+#elif defined(__AVR_ATmega328P__) || defined(__AVR_ATmega32U4__)
 
 private:
 
