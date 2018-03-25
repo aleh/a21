@@ -7,7 +7,9 @@
 
 #include <Arduino.h>
 
-#include "pins.hpp"
+#if defined(ARDUINO_ARCH_AVR)
+#include <util/delay.h>
+#endif
 
 namespace a21 { 
 
@@ -30,8 +32,16 @@ public:
     ::delay(ms);
   }
   
-  static inline void delayMicroseconds(uint16_t us) {
-    ::delayMicroseconds(us);
+  /** Busy-waits for the specified number of microseconds. */
+  static inline void delayMicroseconds(double us) __attribute__((always_inline)) {
+    // Don't delay if it's going to be less than a single clock cycle.
+    #if defined(ARDUINO_ARCH_AVR)
+    _delay_us(us);
+    #else
+    if (us > 0.5 * 1000000.0 / F_CPU) {
+      ::delayMicroseconds(us);
+    }
+    #endif
   }
 }; 
   

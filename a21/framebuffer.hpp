@@ -8,7 +8,7 @@
 #include <Arduino.h>
 
 /**
- * Monochrome framebuffer with layout compatible to monochrome LCDs like PCD8544 (from Nokia 3310). 
+ * Monochrome framebuffer with layout compatible with monochrome LCDs like PCD8544 (from Nokia 3310). 
  * The `display` class should support a single static method helping to transfer the framebuffer:
  * static void writeRow(uint8_t col, uint8_t row, const uint8_t *data, uint16_t data_length)
  */
@@ -43,7 +43,7 @@ public:
   uint8_t data[Cols * Rows];
         
   /** Tile based rendering: the given drawing routine is called multiple times to render a part of the whole picture
-   * matching dimensions of the framebuffer; after each drawing a tile the framebuffer is flushed to the display. */
+   * matching dimensions of the framebuffer; after drawing of each tile the framebuffer is flushed to the display. */
   void draw(void (*draw)(Framebuffer& fb)) {
 
     uint8_t row;
@@ -83,7 +83,7 @@ public:
     memset(data, color ? 0xFF : 0x00, sizeof(data));
   }
   
-  /** Draws a rectangle with the top left corner at the given point having the given size. */
+  /** Draws a rectangle with the top left corner at the given point and the given size. */
   void drawRect(int8_t x, int8_t y, uint8_t width, uint8_t height, uint8_t color) {
     
     if (width == 0 || height == 0)

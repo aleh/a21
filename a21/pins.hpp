@@ -11,15 +11,16 @@ namespace a21 {
 
 /** 
  * Wrapper for a non-existent pin, this is handy to pass when a template requires one, but the pin is actually optional,
- * can be left unconnected or is driver by other circuit or user's code.
+ * can be left unconnected or is driven by other circuit or user's code.
  */
+template<bool value = false>
 class UnusedPin {
 public:
 
   static inline void setOutput() {}
   static inline void setInput(bool) { }
   
-  static inline bool read() { return false; }
+  static inline bool read() { return value; }
   
   static inline void setHigh() {}
   static inline void setLow() {}

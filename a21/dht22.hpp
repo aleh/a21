@@ -13,7 +13,7 @@ namespace a21 {
 
 /** 
  * Reads DHT22 and compatible temperature/humidity sensors connected to the given pin.
- * Should have pretty compact code (~500 bytes) because it does not use floating point or even to divide by 10 here.
+ * Should have pretty compact code (~500 bytes) because it does not use floating point even to divide by 10 here.
  * The `pin` parameter should be FastPin-compatible.
  * The `pullup` parameter is true in case an internal pullup on the pin should be enabled.
  */
