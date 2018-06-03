@@ -9,3 +9,4 @@
 #include <a21/pins.hpp>
 #include <a21/print.hpp>
 #include <a21/serial.hpp>
+#include <a21/ssd1306.hpp>
