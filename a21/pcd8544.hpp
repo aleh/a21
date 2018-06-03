@@ -226,6 +226,7 @@ public:
   
   //
   // Support for simple 8px high fonts fitting rows of the display exactly
+  // TODO: move into its own template, can be used with other displays
   //
   
   /** 
@@ -340,7 +341,7 @@ public:
     return max_width - width_left;
   }
   
-  /** Returns how many characters will fit max_width pixels without being truncacted. */
+  /** Returns how many characters will fit max_width pixels without clipping. */
   static uint8_t numberOfCharsFittingWidth(PCD8544Font font, const char *text, uint8_t max_width) {
     
     uint8_t result = 0;
@@ -362,7 +363,7 @@ public:
 };
 
 #if defined(__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
-typedef char *FlashStringPtr;
+typedef fstr_t *FlashStringPtr;
 #else
 typedef const __FlashStringHelper *FlashStringPtr;
 #endif
@@ -370,6 +371,7 @@ typedef const __FlashStringHelper *FlashStringPtr;
 /**
  * Turns a PCD8544 LCD into a simple text-only display with autoscrolling.
  * Note that we don't inherit Arduino's Print class to keep the compiled code size small.
+ * TODO: use the Print<> template for the printing functions
  */
 template<typename lcd, typename font = PCD8544FontPixelstadTweaked>
 class PCD8544Console {

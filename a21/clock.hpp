@@ -14,7 +14,7 @@
 namespace a21 { 
 
 /** 
- * Wrapping clock-related functions so it is possible to switch to alternative clock implementations later.
+ * Wrapping clock-related functions so it is possible to switch to alternative clock implementations.
  */
 class ArduinoClock {
   
@@ -34,10 +34,10 @@ public:
   
   /** Busy-waits for the specified number of microseconds. */
   static inline void delayMicroseconds(double us) __attribute__((always_inline)) {
-    // Don't delay if it's going to be less than a single clock cycle.
     #if defined(ARDUINO_ARCH_AVR)
     _delay_us(us);
     #else
+    // Don't delay if it's going to be less than a single clock cycle.
     if (us > 0.5 * 1000000.0 / F_CPU) {
       ::delayMicroseconds(us);
     }

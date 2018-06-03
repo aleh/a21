@@ -72,10 +72,11 @@ public:
       return;
     }
     
+    // TODO: unfinished
   }
   
   void line(int8_t x1, int8_t y1, int8_t x2, int8_t y2, uint8_t color) {
-      
+    // TODO: unfinished
   }
   
   /** Fills the framebuffer with a specified color. */

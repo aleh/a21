@@ -11,7 +11,8 @@
 namespace a21 {
   
 /** 
- * Simple debouncer logic for Arduino.
+ * Simple debouncer logic.
+ * TODO: pass the clock template from the outside
  */
 template<typename T, int timeout_ms = 10, bool initial_value = false>
 class Debouncer {
@@ -21,7 +22,7 @@ private:
   // The debounced value.
   volatile bool _value;
 
-  // True, if the new value along with its timestamp is known but is held till timeout elapses.
+  // True, if the new value along and its timestamp are known but held till timeout elapses.
   volatile bool _holding;
 
   // The new value being held.
@@ -40,7 +41,7 @@ public:
     return _value;
   }
 
-  /** Called when the debounced value has changed. Interrupts are enabled. */
+  /** Called when the debounced value changes. Interrupts are enabled. */
   void valueDidChange() { 
   }
 
