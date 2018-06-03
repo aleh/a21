@@ -4,6 +4,7 @@
 #include <a21/ec11.hpp>
 #include <a21/eeprom.hpp>
 #include <a21/framebuffer.hpp>
+#include <a21/i2c.hpp>
 #include <a21/pcd8544.hpp>
 #include <a21/pins.hpp>
 #include <a21/print.hpp>
