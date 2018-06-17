@@ -3,6 +3,8 @@
 #include <a21/dht22.hpp>
 #include <a21/ec11.hpp>
 #include <a21/eeprom.hpp>
+#include <a21/font8.hpp>
+#include <a21/font8fonts.hpp>
 #include <a21/framebuffer.hpp>
 #include <a21/i2c.hpp>
 #include <a21/pcd8544.hpp>

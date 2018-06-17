@@ -9,6 +9,7 @@
 
 #include <a21/pcd8544fonts.hpp>
 #include <a21/spi.hpp>
+#include <a21/flashstring.hpp>
 
 namespace a21 {
   
@@ -361,12 +362,6 @@ public:
   }
   
 };
-
-#if defined(__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
-typedef fstr_t *FlashStringPtr;
-#else
-typedef const __FlashStringHelper *FlashStringPtr;
-#endif
 
 /**
  * Turns a PCD8544 LCD into a simple text-only display with autoscrolling.
