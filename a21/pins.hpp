@@ -196,6 +196,12 @@ public:
 #error Your MCU is not supported by FastPin class. Please add it!
     
 #endif // MCU defines
+  
+// Cannot seem to pop the options correctly, have to reset
+#pragma GCC reset_options
+
+}; // FastPin class
+
 	
 /** 
  * This is to make a bunch of different pins appear as an 8-bit bus. 
@@ -252,10 +258,5 @@ public:
       | (pinD7::read() << 7);
   }
 };
-  
-// Cannot seem to pop the options correctly, have to reset
-#pragma GCC reset_options
-
-}; // FastPin class
 
 } // namespace
