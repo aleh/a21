@@ -55,7 +55,7 @@ public:
 template<typename pinRX, unsigned long baudRate, typename Clock = ArduinoClock>
 class SerialRx {
   
-  static const double oneBitDelayUs = 1000000.0 / baudRate;
+	static constexpr double oneBitDelayUs = 1000000.0 / baudRate;
   
   static inline void readNextBit(uint8_t& result) __attribute__((always_inline)) {
     result >>= 1;
