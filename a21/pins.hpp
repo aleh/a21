@@ -196,6 +196,62 @@ public:
 #error Your MCU is not supported by FastPin class. Please add it!
     
 #endif // MCU defines
+	
+/** 
+ * This is to make a bunch of different pins appear as an 8-bit bus. 
+ */
+template<
+  typename pinD0, typename pinD1, typename pinD2, typename pinD3, 
+  typename pinD4, typename pinD5, typename pinD6, typename pinD7
+>
+class PinBus {
+  
+public:
+
+  static void setOutput() {
+     pinD0::setOutput();
+     pinD1::setOutput();
+     pinD2::setOutput();
+     pinD3::setOutput();
+     pinD4::setOutput();
+     pinD5::setOutput();
+     pinD6::setOutput();
+     pinD7::setOutput();
+  }
+
+  static void setInput(bool pullup = false) {
+     pinD0::setInput(pullup);
+     pinD1::setInput(pullup);
+     pinD2::setInput(pullup);
+     pinD3::setInput(pullup);
+     pinD4::setInput(pullup);
+     pinD5::setInput(pullup);
+     pinD6::setInput(pullup);
+     pinD7::setInput(pullup);
+  }
+
+  static void write(uint8_t b) {
+    pinD0::write(b & (1 << 0));
+    pinD1::write(b & (1 << 1));
+    pinD2::write(b & (1 << 2));
+    pinD3::write(b & (1 << 3));
+    pinD4::write(b & (1 << 4));
+    pinD5::write(b & (1 << 5));
+    pinD6::write(b & (1 << 6));
+    pinD7::write(b & (1 << 7));
+  }
+
+  static uint8_t read() {
+    return (pinD0::read() << 0)
+      | (pinD1::read() << 1)
+      | (pinD2::read() << 2)
+      | (pinD3::read() << 3)
+      | (pinD4::read() << 4)
+      | (pinD5::read() << 5)
+      | (pinD6::read() << 6)
+      | (pinD7::read() << 7);
+  }
+};
   
 // Cannot seem to pop the options correctly, have to reset
 #pragma GCC reset_options
