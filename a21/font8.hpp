@@ -103,7 +103,7 @@ public:
 	/** 
 	 * Returns how many characters will fit max_width pixels without clipping. 
 	 */
-	static uint8_t numberOfCharsFittingWidth(Data font, const char *text, uint8_t max_width) {
+	static uint8_t numberOfCharsFittingWidth(Data font, const char *text, uint8_t max_width, uint8_t *actual_width) {
   
 		uint8_t result = 0;
 
@@ -123,7 +123,14 @@ public:
 
 		return result;
 	}
-
+	
+	typedef enum : uint8_t {
+		DrawingScale1 = 1,
+		DrawingScale2,
+		DrawingScale3,
+		DrawingScale4
+	} DrawingScale;
+		
 	/** 
 	 * Renders a text string with the given font by sending the corresponding bytes directly to the LCD 
 	 * supporting Display8RowOutput protocol (see the corresponding prototype).
@@ -135,17 +142,80 @@ public:
 		Data font, 
 	 	uint8_t col,
 		uint8_t page,
-		const uint8_t max_width, 
+		uint8_t max_width, 
 		const char *text, 
-		const uint8_t xor_mask = 0
-	) {
+		DrawingScale scale = DrawingScale1,
+		uint8_t xor_mask = 0
+	) {		
+		uint8_t result;
+		for (uint8_t phase = 0; phase < scale; phase++) {
+			result = drawPhase<MonochromeDisplayPageOutput>(phase, scale, font, col, page, max_width, text, xor_mask);
+		}
+		return result;
+	}   
+
+protected:
+	
+	template<uint8_t bit, uint8_t phase, uint8_t scale>
+	static inline uint8_t stretched(uint8_t b) {
+		const uint8_t src_bit = (bit + phase * 8) / scale;
+		return ((b & (1 << src_bit)) >> src_bit) << bit;
+	}
+	
+	template<uint8_t phase, uint8_t scale>
+	static inline uint8_t stretchedByte(uint8_t b) {
+		return stretched<0, phase, scale>(b)
+			| stretched<1, phase, scale>(b)
+			| stretched<2, phase, scale>(b)
+			| stretched<3, phase, scale>(b)
+			| stretched<4, phase, scale>(b)
+			| stretched<5, phase, scale>(b)
+			| stretched<6, phase, scale>(b)
+			| stretched<7, phase, scale>(b);
+	}	
 		
-		MonochromeDisplayPageOutput::beginWritingPage(col, page);
-  
+	static uint8_t scaledByte(uint8_t phase, DrawingScale scale, uint8_t b) {
+		
+		switch (scale) {
+			case DrawingScale1:
+				return b;
+			case DrawingScale2:
+				if (phase == 0) {
+					return stretchedByte<0, 2>(b);
+				} else {
+					return stretchedByte<1, 2>(b);
+				}
+			case DrawingScale3:
+				if (phase == 0) {
+					return stretchedByte<0, 3>(b);
+				} else if (phase == 1) {
+					return stretchedByte<1, 3>(b);
+				} else {
+					return stretchedByte<2, 3>(b);
+				}
+		}
+		return b;
+	}
+   
+	template<class MonochromeDisplayPageOutput>
+	static uint8_t drawPhase(
+		uint8_t phase,
+		DrawingScale scale,
+		Data font, 
+	 	uint8_t col,
+		uint8_t page,
+		uint8_t max_width, 
+		const char *text,
+		uint8_t xor_mask
+	) {
+		MonochromeDisplayPageOutput::beginWritingPage(col, page + phase);
+
 		char ch;
 		const char *src = text;
 
 		uint8_t width_left = max_width;
+		
+		uint8_t spacing_byte = scaledByte(phase, scale, xor_mask);
 
 		while ((ch = *src++)) {
 
@@ -153,23 +223,59 @@ public:
 			uint8_t width = dataForCharacter(font, ch, bitmap);
 
 			for (uint8_t i = 0; i < width; i++) {
-				MonochromeDisplayPageOutput::writePageByte(bitmap[i] ^ xor_mask);
-				if (--width_left == 0) {
-					MonochromeDisplayPageOutput::endWritingPage();
-					return 0;
+				for (uint8_t j = 0; j < scale; j++) {
+					MonochromeDisplayPageOutput::writePageByte(scaledByte(phase, scale, bitmap[i] ^ xor_mask));
+					if (--width_left == 0) {
+						MonochromeDisplayPageOutput::endWritingPage();
+						return 0;
+					}
 				}
 			}
 
-			MonochromeDisplayPageOutput::writePageByte(xor_mask);
-			
-			if (--width_left == 0)
-				break;
+			for (uint8_t j = 0; j < scale; j++) {
+				MonochromeDisplayPageOutput::writePageByte(spacing_byte);
+				if (--width_left == 0) {
+					break;
+				}
+			}
 		}
-		
+	
 		MonochromeDisplayPageOutput::endWritingPage();
 
 		return max_width - width_left;
-   }
+	}   
+   
+public:
+
+	template<class MonochromeDisplayPageOutput>
+	static uint8_t drawCentered(
+		Data font, 
+	 	uint8_t col,
+		uint8_t page,
+		uint8_t max_width,
+		const char *text, 
+		DrawingScale scale = DrawingScale1,
+		const uint8_t xor_mask = 0
+	) {
+		
+		uint8_t len = 0;
+		uint8_t w = 0;
+
+		char ch;
+		const char *src = text;
+		while ((ch = *src++)) {
+			
+			uint8_t nw = w + scale * (dataForCharacter(font, ch, NULL) + 1);
+			
+			if (nw > max_width)
+				break;
+			
+			w = nw;
+			len++;
+		}
+		
+		draw<MonochromeDisplayPageOutput>(font, col + (max_width - w) / 2, page, w, text, scale, xor_mask);
+	}   
 };
 
 } // namespace

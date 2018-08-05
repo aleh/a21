@@ -38,7 +38,7 @@ template<
 	uint8_t pages = 8,
 	uint8_t slave_address = 0x3C
 >
-class SSD1306 {
+class SSD1306 : public Display8< SSD1306<i2c, pages, slave_address> >{
 	
 public:
 	
@@ -184,8 +184,8 @@ public:
 		return writeCommand(0x23, mode | interval8);
 	}
 
-	/** Most likely you need to enable this by default, because when not "zoomed in" the display downscales
-	* the contents of the memory vertically twice, i.e. displays every second row. */
+	/** Most likely you need to enable this by default on 128x32 version, because when not "zoomed in" 
+	 * the display downscales the contents of the memory vertically twice, i.e. displays every second row. */
 	static inline bool setZoomInEnabled(bool enabled) {
 		// "Set Zoom In" command.
 		return writeCommand(0xD6, enabled ? 1 : 0);
@@ -280,7 +280,7 @@ public:
 	}
 	
 	static void writePageByte(uint8_t b) {
-		i2c::write(b);
+		write(b);
 	}
 	
 	static void endWritingPage() {
@@ -290,34 +290,7 @@ public:
 	/** @} */
 	
 	/** @{ */
-	/** Some basic drawing routines. */ 
-	
-	static uint8_t drawText(
-		Font8::Data font, 
-		uint8_t col,
-		uint8_t row,
-		const char *text, 
-		const uint8_t xor_mask = 0
-	) {
-		return Font8::draw<Self>(font, col, row, Cols - col, text, xor_mask);
-	} 
-
-	static void writePage(uint8_t col, uint8_t page, const uint8_t *data, uint16_t data_length) {
-		beginWritingPage(col, page);
-		const uint8_t *src = data;
-		for (uint16_t c = data_length; c > 0; c--) {
-			writePageByte(*src++);
-		}
-		endWritingPage();
-	}
-
-	static void fillPage(uint8_t col, uint8_t page, uint8_t filler, uint8_t length) {
-		beginWritingPage(col, page);
-		for (uint8_t c = length; c > 0; c--) {
-			writePageByte(filler);
-		}
-		endWritingPage();
-	}		
+	/** Some basic drawing routines. See Display8 template. */ 
  
 	/** @} */
 };

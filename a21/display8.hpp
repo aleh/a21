@@ -34,8 +34,8 @@ namespace a21 {
  * (The "page" terminology is coming from the datasheet of SSD1306 and I think it's better to use it for other displays 
  * instead of a "row", which could be confusing.)
  */
-template<typename dummy>
-class MonochromeDisplayPageOutput {
+template<typename T>
+class Display8 {
 public:
 	
 	/** You pass page number and the start colum the writing will begin with. 
@@ -48,21 +48,72 @@ public:
 	/** And don't forget to call this to finish the transfer. */
 	static void endWritingPage() {}
 	
-	/** 
-	 * Transports a bunch of bytes for the given page. 
-	 * The layout directly corresponds with the memory layout of the LCD, see above.
-	 */
-	static void writePage(uint8_t col, uint8_t page, const uint8_t *data, uint16_t data_length) {}
-	 
-	/** Similar to writePage, but the same byte is sent `length` times. */
-	static void fillPage(uint8_t col, uint8_t page, uint8_t filler, uint8_t length) {}		
+	/** @{ */
+	/** Basic direct-output routines that can be built on the above. */
+	
+	/** Fills a single page with the given data. */ 
+	static void fillPage(uint8_t start_col, uint8_t end_col, uint8_t page, const uint8_t *data) {
+		T::beginWritingPage(start_col, page);
+		const uint8_t *src = data;
+		for (uint8_t c = start_col; c <= end_col; c++) {
+			T::writePageByte(*src++);
+		}
+		T::endWritingPage();
+	}
+
+	static void clearPage(uint8_t start_col, uint8_t end_col, uint8_t page, uint8_t filler = 0) {
+		T::beginWritingPage(start_col, page);
+		for (uint8_t c = start_col; c <= end_col; c++) {
+			T::writePageByte(filler);
+		}
+		T::endWritingPage();
+	}	
+	
+	/** Fills a page-aligned rectangle defined by (start_col, start_page) and (end_col, end_page) points. */
+	static void clear(
+		uint8_t start_col = 0, 
+		uint8_t start_page = 0, 
+		uint8_t end_col = T::Cols - 1, 
+		uint8_t end_page = T::Pages - 1, 
+		uint8_t mask = 0
+	) {
+		for (uint8_t page = start_page; page <= end_page; page++) {
+			clearPage(start_col, end_col, page, mask);
+		}
+	}
+
+	/** Renders text using given page-aligned font. */
+	static uint8_t drawText(
+		Font8::Data font, 
+		uint8_t col,
+		uint8_t page,
+		const char *text, 
+		Font8::DrawingScale scale = Font8::DrawingScale1,
+		const uint8_t xor_mask = 0
+	) {
+		return Font8::draw<T>(font, col, page, T::Cols - col, text, scale, xor_mask);
+	}
+		
+	static uint8_t drawTextCentered(
+		Font8::Data font, 
+		uint8_t start_col,
+		uint8_t end_col,
+		uint8_t page,
+		const char *text, 
+		Font8::DrawingScale scale = Font8::DrawingScale1,
+		const uint8_t xor_mask = 0
+	) {
+		return Font8::drawCentered<T>(font, start_col, end_col, page, text, scale, xor_mask);
+	}
+	
+	/** @} */	
 };
 
 /** 
  * This is to document a minimal interface of a monochrome display supporting paged ccess. 
  */
 template<typename dummy>
-class Display8 {
+class Display8Constants {
 	
 	static const uint8_t Pages = 8;
 	static const uint8_t Rows = 8 * Pages;
@@ -139,7 +190,7 @@ private:
 
 			// Print the row and erase the space after the last character.
 			uint8_t width = lcd::drawText(font::data(), 0, i, _buffer[row_index]);
-			lcd::fillPage(width, i, 0, lcd::Cols - width);
+			lcd::fillPage(width, lcd::Cols - width, i);
 		}
 	}
 

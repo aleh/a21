@@ -366,7 +366,7 @@ public:
 /**
  * Turns a PCD8544 LCD into a simple text-only display with autoscrolling.
  * Note that we don't inherit Arduino's Print class to keep the compiled code size small.
- * TODO: use the Print<> template for the printing functions
+ * TODO: this was moved to Display8Console. Get rid of it here.
  */
 template<typename lcd, typename font = PCD8544FontPixelstadTweaked>
 class PCD8544Console {
