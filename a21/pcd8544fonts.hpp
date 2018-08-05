@@ -1,6 +1,6 @@
 //
 // a21 — Arduino Toolkit.
-// Copyright (C) 2016-2017, Aleh Dzenisiuk. http://github.com/aleh/a21
+// Copyright (C) 2016-2018, Aleh Dzenisiuk. http://github.com/aleh/a21
 //
 
 #include <Arduino.h>
