@@ -17,6 +17,9 @@ namespace a21 {
 template<bool value = false>
 class UnusedPin {
 public:
+	
+	/** Can be handy for the user classes to know if the pin is actually unused, so more related actions can be skipped. */
+	static const bool unused = true;
 
   static inline void setOutput() {}
   static inline void setInput(bool) { }
@@ -38,6 +41,8 @@ class SlowPin {
 public:
   
   static const int Pin = pin;
+	
+	static const bool unused = false;
 
   static inline void setOutput() {
     pinMode(pin, OUTPUT);
@@ -72,114 +77,122 @@ public:
  */
 template<int pin>
 class FastPin {
-  
-public:
-  static const int Pin = pin;  
-  
+    
 #pragma GCC optimize ("O2")
+
+private:
 
 // ATTiny85-based boards, like Digispark
 #if defined(__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
-  
-private:
 
-  static uint8_t const mask = _BV(pin);
+	// Pins 0-7 -> PORTB0:8
   
+  // A mask corresponding to our pin in the port registers.
+  static constexpr uint8_t const mask = _BV(pin);
+	// The corresponding PORT* register.
+	static constexpr volatile uint8_t *port = &PORTB;
+	// DDR* register.
+	static constexpr volatile uint8_t *ddr = &DDRB;
+	// PIN* register.
+	static constexpr volatile uint8_t *in = &PINB;
+  
+// ATmega329-based boards, like Arduino Uno or Nano
+#elif defined(__AVR_ATmega328P__)
+	
+	// Pins 0-7 -> PORTD0:7
+	// Pins 8-13 -> PORTB0:5 (a crystal is connected to pins 6 and 7)
+	// Pins A0-A7 -> PORTC
+	
+	// This is to help with mapping of pin numbers.
+	#define PORT_REG(pin, D, B, C) (((pin) <= 7) ? (D) : (((pin) < A0) ? (B) : (C)))
+
+  // A mask corresponding to our pin in the port registers.
+  static constexpr uint8_t const mask = _BV(PORT_REG(pin, pin, pin - 8, pin - A0));	
+	// The corresponding PORT* register.
+	static constexpr volatile uint8_t *port = &PORT_REG(pin, PORTD, PORTB, PORTC);
+	// DDR* register.
+	static constexpr volatile uint8_t *ddr = &PORT_REG(pin, DDRD, DDRB, DDRC);
+	// PIN* register.
+	static constexpr volatile uint8_t *in = &PORT_REG(pin, PIND, PINB, PINC);
+ 
+// ATmega32u4-based boards, like Arduino Leonardo and Micro
+#elif defined(__AVR_ATmega32U4__)
+	
+	// It's not as nice for these Arduinos. Still the mapping will be performed at compilation time.
+		
+	static constexpr uint8_t maskForPin() {
+		return
+			(pin == 3 || pin == 17 || pin == 23) ? _BV(0) : (
+				(pin == 2 || pin == 15 || pin == 22) ? _BV(1) : (
+					(pin == 0 || pin == 16) ? _BV(2) : (
+						(pin == 1 || pin == 14) ? _BV(3) : (
+							(pin == 4 || pin == 8 || pin == 21 || pin == 24 || pin == 26) ? _BV(4) : (
+								(pin == 9	|| pin == 20 || pin == 27 || pin == 30) ? _BV(5) : (
+									(pin == 5 || pin == 7 || pin == 10 || pin == 12 || pin == 19 || pin == 28 || pin == 29) ? _BV(6) : (
+										(pin == 6 || pin == 11 || pin == 13 || pin == 18 || pin == 25) ? _BV(7) : 0
+									)
+								)
+							)
+						)
+					)
+				)
+			);
+	}
+	
+  static constexpr uint8_t mask = maskForPin();
+	
+	static constexpr volatile uint8_t *regForPin(volatile uint8_t *B, volatile uint8_t *C, volatile uint8_t *D, volatile uint8_t *E, volatile uint8_t *F) {
+		return 
+			(pin == 8 || pin == 9 || pin == 10 || pin == 11 || pin == 14 || pin == 15 || pin == 16 || pin == 17 || pin == 26 || pin == 27 || pin == 28) ? B : (
+				(pin == 5 || pin == 13) ? C : (
+					(pin == 0 || pin == 1 || pin == 2 || pin == 3 || pin == 4 || pin == 6 || pin == 12 || pin == 24 || pin == 25 || pin == 29 || pin == 30) ? D : (
+						(pin == 7) ? E : (
+							(pin == 18 || pin == 19 || pin == 20 || pin == 21 || pin == 22 || pin == 23) ? F : 0
+						)
+					)
+				)
+			);
+	}
+	
+	static constexpr volatile uint8_t *port = regForPin(&PORTB, &PORTC, &PORTD, &PORTE, &PORTF);
+	static constexpr volatile uint8_t *ddr = regForPin(&DDRB, &DDRC, &DDRD, &DDRE, &DDRF);
+	static constexpr volatile uint8_t *in = regForPin(&PINB, &PINC, &PIND, &PINE, &PINF);
+	
+#else
+  
+#error Your MCU is not supported by FastPin class. Please add it!
+    
+#endif // MCU defines
+	
 public:
+
+  static const int Pin = pin;  
+	
+	static const bool unused = false;
 	
   static inline void setOutput() __attribute__((always_inline)) {
-    DDRB |= mask;
+		*ddr |= mask;
   }
   
   static inline void setInput(bool pullup) __attribute__((always_inline)) {
-    DDRB &= ~mask;
+		*ddr &= ~mask;
     if (pullup) {
-      PORTB |= mask;
+      *port |= mask;
     } else {
-      PORTB &= ~mask;
-    }      
-  }
-  
-  static inline bool read() __attribute__((always_inline)) {
-    return bit_is_set(PINB, pin);
-  }
-  
-  static inline void setHigh() __attribute__((always_inline)) {
-    PORTB |= mask;
-  }
-  
-  static inline void setLow() __attribute__((always_inline)) {
-    PORTB &= ~mask;
-  }
-
-  static inline void write(bool b) __attribute__((always_inline)) {
-    if (b) {
-      setHigh();
-    } else {
-      setLow();
-    }
-  }
-
-// ATmega329-based boards, like Arduino Uno, Nano, or Yun
-#elif defined(__AVR_ATmega328P__) || defined(__AVR_ATmega32U4__)
-
-private:
-
-  // Calculating our bitmask in one place. Unfortunately cannot make this trick for the port registers it seems.
-  static uint8_t const mask = (pin < 8) ? _BV(pin) : _BV(pin - 8);
-  
-public:
-	
-  // Don't worry about all the if statements, they'll be optimized away as the expression is known at compilation time.
-  
-  static inline void setOutput() __attribute__((always_inline)) {
-    if (pin < 8) {
-      DDRD |= mask;
-    } else {
-      DDRB |= mask;
-    }
-  }
-  
-  static inline void setInput(bool pullup) __attribute__((always_inline)) {
-    if (pin < 8) {
-      DDRD &= ~mask;
-      if (pullup) {
-        PORTD |= mask;
-      } else {
-        PORTD &= ~mask;
-      }
-    } else {
-      DDRB &= ~mask;
-      if (pullup) {
-        PORTB |= mask;
-      } else {
-        PORTB &= ~mask;
-      }      
+      *port &= ~mask;
     }
   }
   
   static inline bool read() __attribute__((always_inline)) {
-    if (pin < 8) {
-      return bit_is_set(PIND, pin);
-    } else {
-      return bit_is_set(PINB, pin - 8);
-    }
+		return (*in) & mask;
   }
   
   static inline void setHigh() __attribute__((always_inline)) {
-    if (pin < 8) {
-      PORTD |= mask;
-    } else {
-      PORTB |= mask;
-    }
+		*port |= mask;
   }
   
   static inline void setLow() __attribute__((always_inline)) {
-    if (pin < 8) {
-      PORTD &= ~mask;
-    } else {
-      PORTB &= ~mask;
-    }
+		*port &= ~mask;
   }
 
   // If b happens to be known at compilation time, then the if statement here will be optimized as well.
@@ -190,12 +203,6 @@ public:
       setLow();
     }
   }
-
-#else
-  
-#error Your MCU is not supported by FastPin class. Please add it!
-    
-#endif // MCU defines
   
 // Cannot seem to pop the options correctly, have to reset
 #pragma GCC reset_options
