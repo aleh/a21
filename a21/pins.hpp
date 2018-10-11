@@ -18,7 +18,7 @@ template<bool value = false>
 class UnusedPin {
 public:
 	
-	/** Can be handy for the user classes to know if the pin is actually unused, so more related actions can be skipped. */
+	/** Can be handy for the user classes to know if the pin is actually unused, so any related actions can be skipped as well. */
 	static const bool unused = true;
 
   static inline void setOutput() {}
@@ -30,6 +30,24 @@ public:
   static inline void setLow() {}
   
   static inline void write(bool) { }
+};
+
+/** This is to invert the levels of a pin without changing the code using it. */
+template<typename Pin>
+class InvertedPin {
+public:
+	
+	static const bool unused = false;
+
+  static inline void setOutput() { Pin::setOutput(); }
+  static inline void setInput(bool pullup) { Pin::setInput(pullup); }
+  
+  static inline bool read() { return !Pin::read(); }
+  
+  static inline void setHigh() { Pin::setLow(); }
+  static inline void setLow() { Pin::setHigh(); }
+  
+  static inline void write(bool value) { Pin::write(!value); }
 };
 
 /** 
