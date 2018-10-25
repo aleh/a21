@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <arduino.h>
+#include <Arduino.h>
 
 namespace a21 {
 
