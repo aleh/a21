@@ -10,9 +10,9 @@
 namespace a21 {
 
 /** 
- * Wrapper for a dummy pin.
- * This is handy to pass when a template requires one, but the pin is actually optional,
- * can be left unconnected or is driven by other circuit or user's code.
+ * A pin that is not connected anywhere.
+ * This is handy when a template requires a pin, but it is actually optional, i.e can be left unconnected 
+ * or is driven by other circuit or user's code.
  */
 template<bool value = false>
 class UnusedPin {
@@ -51,8 +51,8 @@ public:
 };
 
 /** 
- * Wrapper for a pin that uses standard Arduino library calls (digitalRead and friends).
- * This is handy when debugging FastPin or on boards not supported by it.
+ * A pin that uses standard Arduino library calls (digitalRead() and friends).
+ * This is handy when debugging FastPin or with boards that are not supported by it.
  */
 template<int pin>
 class SlowPin {
@@ -97,46 +97,55 @@ template<int pin>
 class FastPin {
     
 #pragma GCC optimize ("O2")
-
+		
 private:
 
-// ATTiny85-based boards, like Digispark
+	typedef volatile uint8_t *port_ptr;
+	
+	// The MCU-specific parts below should provide the following definitions for the code that follows:
+	// static constexpr uint8_t mask; // A mask corresponding to our pin in the port registers.
+	// static port_ptr port(); // The corresponding PORT* register.
+	// static port_ptr ddr(); // DDR* register.
+	// static port_ptr in(); // PIN* register.
+	
+	// Note that it's assumed that the same mask is used for all registers, which is true only for currently 
+	// supported boards.	
+	
+	// Also note that I was using constexpr before instead of inline functions but later versions of GCC 
+	// stopped supporting constexpr with numbers reinterpreted as pointers, something that all port addresses are.
+	// Shame, this was useful and the restriction makes no sense for MCU-specific code we are dealing with,
+	// see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=49171#c18.
+
+// ATTiny85-based boards, like Digispark.
 #if defined(__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
 
-	// Pins 0-7 -> PORTB0:8
+	// Pins 0-7 -> PORTB0:8  
+	static constexpr uint8_t const mask = _BV(pin);
+	static port_ptr port() __attribute__((always_inline)) { return &PORTB; }
+	static port_ptr ddr() __attribute__((always_inline)) { return &DDRB; }
+	static port_ptr in() __attribute__((always_inline)) { return &PINB; }
   
-  // A mask corresponding to our pin in the port registers.
-  static constexpr uint8_t const mask = _BV(pin);
-	// The corresponding PORT* register.
-	static constexpr volatile uint8_t *port = &PORTB;
-	// DDR* register.
-	static constexpr volatile uint8_t *ddr = &DDRB;
-	// PIN* register.
-	static constexpr volatile uint8_t *in = &PINB;
-  
-// ATmega329-based boards, like Arduino Uno or Nano
+// ATmega328-based boards, like Arduino Uno or Nano.
 #elif defined(__AVR_ATmega328P__)
 	
 	// Pins 0-7 -> PORTD0:7
 	// Pins 8-13 -> PORTB0:5 (a crystal is connected to pins 6 and 7)
 	// Pins A0-A7 -> PORTC
-	
-	// This is to help with mapping of pin numbers.
-	#define PORT_REG(pin, D, B, C) (((pin) <= 7) ? (D) : (((pin) < A0) ? (B) : (C)))
 
-  // A mask corresponding to our pin in the port registers.
-  static constexpr uint8_t const mask = _BV(PORT_REG(pin, pin, pin - 8, pin - A0));	
-	// The corresponding PORT* register.
-	static constexpr volatile uint8_t *port = &PORT_REG(pin, PORTD, PORTB, PORTC);
-	// DDR* register.
-	static constexpr volatile uint8_t *ddr = &PORT_REG(pin, DDRD, DDRB, DDRC);
-	// PIN* register.
-	static constexpr volatile uint8_t *in = &PORT_REG(pin, PIND, PINB, PINC);
- 
-// ATmega32u4-based boards, like Arduino Leonardo and Micro
+	static constexpr uint8_t const mask = _BV(pin <= 7 ? pin : ((pin < A0) ? pin - 8 : pin - A0));
+	
+	static port_ptr regForPin(port_ptr D, port_ptr B, port_ptr C) __attribute__((always_inline)) {
+		return pin <= 7 ? D : ((pin < A0) ? B : C);
+	}
+
+	static port_ptr port() __attribute__((always_inline)) { return regForPin(&PORTD, &PORTB, &PORTC); }
+	static port_ptr ddr() __attribute__((always_inline)) { return regForPin(&DDRD, &DDRB, &DDRC); }
+	static port_ptr in() __attribute__((always_inline)) { return regForPin(&PIND, &PINB, &PINC); }
+
+// ATmega32u4-based boards, like Arduino Leonardo and Micro.
 #elif defined(__AVR_ATmega32U4__)
 	
-	// It's not as nice for these Arduinos. Still the mapping will be performed at compilation time.
+	// It's not as nice for these Arduinos, still the mapping will be performed at compile time.
 		
 	static constexpr uint8_t maskForPin() {
 		return
@@ -157,9 +166,9 @@ private:
 			);
 	}
 	
-  static constexpr uint8_t mask = maskForPin();
+	static constexpr uint8_t mask = maskForPin();
 	
-	static constexpr volatile uint8_t *regForPin(volatile uint8_t *B, volatile uint8_t *C, volatile uint8_t *D, volatile uint8_t *E, volatile uint8_t *F) {
+	static port_ptr regForPin(port_ptr B, port_ptr C, port_ptr D, port_ptr E, port_ptr F) __attribute__((always_inline)) {
 		return 
 			(pin == 8 || pin == 9 || pin == 10 || pin == 11 || pin == 14 || pin == 15 || pin == 16 || pin == 17 || pin == 26 || pin == 27 || pin == 28) ? B : (
 				(pin == 5 || pin == 13) ? C : (
@@ -172,14 +181,12 @@ private:
 			);
 	}
 	
-	static constexpr volatile uint8_t *port = regForPin(&PORTB, &PORTC, &PORTD, &PORTE, &PORTF);
-	static constexpr volatile uint8_t *ddr = regForPin(&DDRB, &DDRC, &DDRD, &DDRE, &DDRF);
-	static constexpr volatile uint8_t *in = regForPin(&PINB, &PINC, &PIND, &PINE, &PINF);
+	static port_ptr port() __attribute__((always_inline)) { return regForPin(&PORTB, &PORTC, &PORTD, &PORTE, &PORTF); }
+	static port_ptr ddr() __attribute__((always_inline)) { return regForPin(&DDRB, &DDRC, &DDRD, &DDRE, &DDRF); }
+	static port_ptr in() __attribute__((always_inline)) { return regForPin(&PINB, &PINC, &PIND, &PINE, &PINF); }
 	
 #else
-  
-#error Your MCU is not supported by FastPin class. Please add it!
-    
+#error Your MCU is not supported by FastPin yet.    
 #endif // MCU defines
 	
 public:
@@ -189,31 +196,31 @@ public:
 	static const bool unused = false;
 	
   static inline void setOutput() __attribute__((always_inline)) {
-		*ddr |= mask;
+		*ddr() |= mask;
   }
   
   static inline void setInput(bool pullup) __attribute__((always_inline)) {
-		*ddr &= ~mask;
+		*ddr() &= ~mask;
     if (pullup) {
-      *port |= mask;
+      *port() |= mask;
     } else {
-      *port &= ~mask;
+      *port() &= ~mask;
     }
   }
   
   static inline bool read() __attribute__((always_inline)) {
-		return (*in) & mask;
+		return (*in()) & mask;
   }
   
   static inline void setHigh() __attribute__((always_inline)) {
-		*port |= mask;
+		*port() |= mask;
   }
   
   static inline void setLow() __attribute__((always_inline)) {
-		*port &= ~mask;
+		*port() &= ~mask;
   }
 
-  // If b happens to be known at compilation time, then the if statement here will be optimized as well.
+  // If b happens to be known at compile time, then the if statement here will be optimized as well.
   static inline void write(bool b) __attribute__((always_inline)) {
     if (b) {
       setHigh();
@@ -226,7 +233,6 @@ public:
 #pragma GCC reset_options
 
 }; // FastPin class
-
 	
 /** 
  * This is to make a bunch of different pins appear as an 8-bit bus. 

@@ -14,7 +14,7 @@ DHT22< FastPin<2>, false > dht22;
 // Here we are showing sensor readings on a Nokia display, though anything else would work of course.
 // The pins are in the order of the display: RST, CE, DC, DIN, CLK. 
 // I am not using RST and CE here, so it can easily work with Digispark.
-typedef PCD8544< UnusedPin, UnusedPin, FastPin<5>, FastPin<4>, FastPin<0> > LCD;
+typedef PCD8544< UnusedPin<>, UnusedPin<>, FastPin<5>, FastPin<4>, FastPin<0> > LCD;
 LCD lcd;
 
 // A simple text console that is able to render itself to the LCD.
