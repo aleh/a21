@@ -7,10 +7,13 @@
 
 namespace a21 {
 
-#if defined(__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
-typedef fstr_t *FlashStringPtr;
-#else
-typedef const __FlashStringHelper *FlashStringPtr;
+// Regular Arduinos and Digispark boards have different definition for the progmem strings,
+// thus using an alias here for a common ground.
+#if defined(ARDUINO_AVR_DIGISPARK)
+		typedef fstr_t *FlashStringPtr;
+#else 
+		// Assuming a regular Arduino.
+		typedef const __FlashStringHelper *FlashStringPtr;
 #endif
 
 };
